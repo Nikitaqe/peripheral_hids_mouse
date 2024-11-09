@@ -3,6 +3,7 @@
  *
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
+
 #include <zephyr/types.h>
 #include <stddef.h>
 #include <string.h>
@@ -38,42 +39,31 @@
 
 #define BASE_USB_HID_SPEC_VERSION   0x0101
 
-/* Number of pixels by which the cursor is moved when a button is pushed.*/
+/* Number of pixels by which the cursor is moved when a button is pushed. */
 #define MOVEMENT_SPEED              5
-/* Number of input reports in this application. 
-Количество отчетов о вводимых данных в этом приложении.*/
+/* Number of input reports in this application. */
 #define INPUT_REPORT_COUNT          3
-/* Length of Mouse Input Report containing button data. 
-Длина отчета о вводимых данных с помощью мыши, содержащего данные о кнопке.*/
+/* Length of Mouse Input Report containing button data. */
 #define INPUT_REP_BUTTONS_LEN       3
-/* Length of Mouse Input Report containing movement data. 
-Длина отчета о вводе данных мышью, содержащего данные о перемещении.*/
+/* Length of Mouse Input Report containing movement data. */
 #define INPUT_REP_MOVEMENT_LEN      3
-/* Length of Mouse Input Report containing media player data. 
-Длина отчета о вводе данных мышью, содержащего данные медиаплеера.*/
+/* Length of Mouse Input Report containing media player data. */
 #define INPUT_REP_MEDIA_PLAYER_LEN  1
-/* Index of Mouse Input Report containing button data. 
-Индекс отчета о вводе данных с помощью мыши, содержащего данные о кнопках.*/
+/* Index of Mouse Input Report containing button data. */
 #define INPUT_REP_BUTTONS_INDEX     0
-/* Index of Mouse Input Report containing movement data. 
-Индекс отчета о вводе данных мышью, содержащего данные о перемещении.*/
+/* Index of Mouse Input Report containing movement data. */
 #define INPUT_REP_MOVEMENT_INDEX    1
-/* Index of Mouse Input Report containing media player data. 
-Индекс отчета о вводе данных мышью, содержащего данные медиаплеера.*/
+/* Index of Mouse Input Report containing media player data. */
 #define INPUT_REP_MPLAYER_INDEX     2
-/* Id of reference to Mouse Input Report containing button data. 
-Идентификатор ссылки на отчет о вводе данных с помощью мыши, содержащий данные о кнопках.*/
+/* Id of reference to Mouse Input Report containing button data. */
 #define INPUT_REP_REF_BUTTONS_ID    1
-/* Id of reference to Mouse Input Report containing movement data. 
-Идентификатор ссылки на отчет о вводе данных с помощью мыши, содержащий данные о перемещении.*/
+/* Id of reference to Mouse Input Report containing movement data. */
 #define INPUT_REP_REF_MOVEMENT_ID   2
-/* Id of reference to Mouse Input Report containing media player data. 
-Идентификатор ссылки на отчет о вводе мышью, содержащий данные медиаплеера.*/
+/* Id of reference to Mouse Input Report containing media player data. */
 #define INPUT_REP_REF_MPLAYER_ID    3
 
 /* HIDs queue size. */
 #define HIDS_QUEUE_SIZE 10
-
 
 /* Key used to move cursor left */
 #define KEY_LEFT_MASK   DK_BTN1_MSK
@@ -93,7 +83,6 @@ BT_HIDS_DEF(hids_obj,
 	    INPUT_REP_BUTTONS_LEN,
 	    INPUT_REP_MOVEMENT_LEN,
 	    INPUT_REP_MEDIA_PLAYER_LEN);
-
 
 static struct k_work hids_work;
 struct mouse_pos {
@@ -115,7 +104,6 @@ K_MSGQ_DEFINE(bonds_queue,
 	      4);
 #endif
 
-
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_GAP_APPEARANCE,
 		      (CONFIG_BT_DEVICE_APPEARANCE >> 0) & 0xff,
@@ -128,7 +116,6 @@ static const struct bt_data ad[] = {
 static const struct bt_data sd[] = {
 	BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
 };
-
 
 static struct conn_mode {
 	struct bt_conn *conn;
@@ -145,305 +132,228 @@ struct pairing_data_mitm {
 	unsigned int passkey;
 };
 
-
 K_MSGQ_DEFINE(mitm_queue,
 	      sizeof(struct pairing_data_mitm),
 	      CONFIG_BT_HIDS_MAX_CLIENT_COUNT,
 	      4);
 
 #if CONFIG_BT_DIRECTED_ADVERTISING
-// Функция, которая обрабатывает найденные связанные устройства
 static void bond_find(const struct bt_bond_info *info, void *user_data)
 {
-    // Код ошибки
-    int err;
+	int err;
 
-    // Фильтруем уже подключенные устройства
-    for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
-        // Если устройство уже подключено, пропускаем его
-        if (conn_mode[i].conn) {
-            // Получаем адрес устройства
-            const bt_addr_le_t *dst = bt_conn_get_dst(conn_mode[i].conn);
+	/* Filter already connected peers. */
+	for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
+		if (conn_mode[i].conn) {
+			const bt_addr_le_t *dst =
+				bt_conn_get_dst(conn_mode[i].conn);
 
-            // Сравниваем адрес устройства с адресом найденного связанного устройства
-            if (!bt_addr_le_cmp(&info->addr, dst)) {
-                // Если адреса совпадают, пропускаем устройство
-                return;
-            }
-        }
-    }
+			if (!bt_addr_le_cmp(&info->addr, dst)) {
+				return;
+			}
+		}
+	}
 
-
-    // Добавляем адрес найденного связанного устройства в очередь
-    err = k_msgq_put(&bonds_queue, (void *) &info->addr, K_NO_WAIT);
-    if (err) {
-        // Если очередь полна, выводим сообщение об ошибке
-        printk("No space in the queue for the bond.\n");
-    }
+	err = k_msgq_put(&bonds_queue, (void *) &info->addr, K_NO_WAIT);
+	if (err) {
+		printk("No space in the queue for the bond.\n");
+	}
 }
 #endif
 
-// Функция, которая продолжает рекламные сообщения
 static void advertising_continue(void)
 {
-    // Параметры рекламных сообщений
-    struct bt_le_adv_param adv_param;
+	struct bt_le_adv_param adv_param;
 
 #if CONFIG_BT_DIRECTED_ADVERTISING
-    // Адрес устройства для направленной рекламы
-    bt_addr_le_t addr;
+	bt_addr_le_t addr;
 
-    // Если очередь связанных устройств не пуста, получаем адрес устройства
-    if (!k_msgq_get(&bonds_queue, &addr, K_NO_WAIT)) {
-        // Если рекламные сообщения уже запущены, останавливаем их
-        if (is_adv_running) {
-            int err = bt_le_adv_stop();
-            if (err) {
-                printk("Advertising failed to stop (err %d)\n", err);
-                return;
-            }
-            is_adv_running = false;
-        }
+	if (!k_msgq_get(&bonds_queue, &addr, K_NO_WAIT)) {
+		char addr_buf[BT_ADDR_LE_STR_LEN];
+		int err;
 
-        // Настройка параметров направленной рекламы
-        adv_param = *BT_LE_ADV_CONN_DIR(&addr);
-        adv_param.options |= BT_LE_ADV_OPT_DIR_ADDR_RPA;
+		if (is_adv_running) {
+			err = bt_le_adv_stop();
+			if (err) {
+				printk("Advertising failed to stop (err %d)\n", err);
+				return;
+			}
+			is_adv_running = false;
+		}
 
-        // Запуск направленной рекламы
-        int err = bt_le_adv_start(&adv_param, NULL, 0, NULL, 0);
-        if (err) {
-            printk("Directed advertising failed to start (err %d)\n", err);
-            return;
-        }
+		adv_param = *BT_LE_ADV_CONN_DIR(&addr);
+		adv_param.options |= BT_LE_ADV_OPT_DIR_ADDR_RPA;
 
-        // Выводим сообщение о начале направленной рекламы
-        char addr_buf[BT_ADDR_LE_STR_LEN];
-        bt_addr_le_to_str(&addr, addr_buf, BT_ADDR_LE_STR_LEN);
-        printk("Direct advertising to %s started\n", addr_buf);
-    } else
+		err = bt_le_adv_start(&adv_param, NULL, 0, NULL, 0);
+
+		if (err) {
+			printk("Directed advertising failed to start (err %d)\n", err);
+			return;
+		}
+
+		bt_addr_le_to_str(&addr, addr_buf, BT_ADDR_LE_STR_LEN);
+		printk("Direct advertising to %s started\n", addr_buf);
+	} else
 #endif
-    {
+	{
+		int err;
 
-        // Если очередь связанных устройств пуста, запускаем обычную рекламу
-        int err;
+		if (is_adv_running) {
+			return;
+		}
 
-        // Если рекламные сообщения уже запущены, выходим
-        if (is_adv_running) {
-            return;
-        }
+		adv_param = *BT_LE_ADV_CONN;
+		adv_param.options |= BT_LE_ADV_OPT_ONE_TIME;
+		err = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad),
+				  sd, ARRAY_SIZE(sd));
+		if (err) {
+			printk("Advertising failed to start (err %d)\n", err);
+			return;
+		}
 
-        // Настройка параметров обычной рекламы
-        adv_param = *BT_LE_ADV_CONN;
-        adv_param.options |= BT_LE_ADV_OPT_ONE_TIME;
+		printk("Regular advertising started\n");
+	}
 
-        // Запуск обычной рекламы
-        err = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
-        if (err) {
-            printk("Advertising failed to start (err %d)\n", err);
-            return;
-        }
-
-        // Выводим сообщение о начале обычной рекламы
-        printk("Regular advertising started\n");
-    }
-
-    // Установка флага о запущенных рекламных сообщениях
-    is_adv_running = true;
+	is_adv_running = true;
 }
 
-// Функция, которая запускает рекламные сообщения
 static void advertising_start(void)
 {
 #if CONFIG_BT_DIRECTED_ADVERTISING
-    // Очистка очереди связанных устройств
-    k_msgq_purge(&bonds_queue);
-
-    // Поиск связанных устройств
-    bt_foreach_bond(BT_ID_DEFAULT, bond_find, NULL);
+	k_msgq_purge(&bonds_queue);
+	bt_foreach_bond(BT_ID_DEFAULT, bond_find, NULL);
 #endif
 
-    // Запуск задачи рекламных сообщений
-    k_work_submit(&adv_work);
+	k_work_submit(&adv_work);
 }
 
-
-// Функция, которая обрабатывает задачу рекламных сообщений
 static void advertising_process(struct k_work *work)
 {
-    // Продолжение рекламных сообщений
-    advertising_continue();
+	advertising_continue();
 }
 
-// Функция, которая обрабатывает задачу пары
 static void pairing_process(struct k_work *work)
 {
-    // Код ошибки
-    int err;
+	int err;
+	struct pairing_data_mitm pairing_data;
 
-    // Данные для пары с MITM
-    struct pairing_data_mitm pairing_data;
+	char addr[BT_ADDR_LE_STR_LEN];
 
-    // Буфер для адреса устройства
-    char addr[BT_ADDR_LE_STR_LEN];
+	err = k_msgq_peek(&mitm_queue, &pairing_data);
+	if (err) {
+		return;
+	}
 
-    // Получаем данные для пары из очереди
-    err = k_msgq_peek(&mitm_queue, &pairing_data);
-    if (err) {
-        // Если данные не получены, выходим
-        return;
-    }
+	bt_addr_le_to_str(bt_conn_get_dst(pairing_data.conn),
+			  addr, sizeof(addr));
 
-    // Преобразуем адрес устройства в строку
-    bt_addr_le_to_str(bt_conn_get_dst(pairing_data.conn), addr, sizeof(addr));
-
-
-    // Выводим информацию о паре
-    printk("Passkey for %s: %06u\n", addr, pairing_data.passkey);
-    printk("Press Button 1 to confirm, Button 2 to reject.\n");
+	printk("Passkey for %s: %06u\n", addr, pairing_data.passkey);
+	printk("Press Button 1 to confirm, Button 2 to reject.\n");
 }
 
 
-// Функция, которая добавляет объект соединения
 static void insert_conn_object(struct bt_conn *conn)
 {
-    // Ищем свободное место в массиве conn_mode
-    for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
-        // Если найдено свободное место, добавляем объект соединения
-        if (!conn_mode[i].conn) {
-            conn_mode[i].conn = conn;
-            conn_mode[i].in_boot_mode = false;
+	for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
+		if (!conn_mode[i].conn) {
+			conn_mode[i].conn = conn;
+			conn_mode[i].in_boot_mode = false;
 
-            // Выходим из функции, поскольку объект соединения добавлен
-            return;
-        }
-    }
+			return;
+		}
+	}
 
-    // Если не найдено свободное место, выводим сообщение об ошибке
-    printk("Connection object could not be inserted %p\n", conn);
+	printk("Connection object could not be inserted %p\n", conn);
 }
 
 
-// Функция, которая проверяет, есть ли свободное место в массиве conn_mode
 static bool is_conn_slot_free(void)
 {
+	for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
+		if (!conn_mode[i].conn) {
+			return true;
+		}
+	}
 
-    // Перебираем массив conn_mode и проверяем, есть ли свободное место
-    for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
-        // Если найдено свободное место, возвращаем true
-        if (!conn_mode[i].conn) {
-            return true;
-        }
-    }
-
-    // Если не найдено свободного места, возвращаем false
-    return false;
+	return false;
 }
 
 
-// Функция, которая вызывается при установлении соединения
 static void connected(struct bt_conn *conn, uint8_t err)
 {
-    // Буфер для адреса устройства
-    char addr[BT_ADDR_LE_STR_LEN];
+	char addr[BT_ADDR_LE_STR_LEN];
 
-    // Останавливаем рекламные сообщения
-    is_adv_running = false;
+	is_adv_running = false;
 
-    // Преобразуем адрес устройства в строку
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    // Если произошла ошибка, выводим сообщение об ошибке
-    if (err) {
-        // Если ошибка связана с таймаутом рекламных сообщений, выводим сообщение и запускаем рекламные сообщения снова
-        if (err == BT_HCI_ERR_ADV_TIMEOUT) {
-            printk("Direct advertising to %s timed out\n", addr);
-            k_work_submit(&adv_work);
-        } else {
+	if (err) {
+		if (err == BT_HCI_ERR_ADV_TIMEOUT) {
+			printk("Direct advertising to %s timed out\n", addr);
+			k_work_submit(&adv_work);
+		} else {
+			printk("Failed to connect to %s (%u)\n", addr, err);
+		}
+		return;
+	}
 
-            // Если ошибка не связана с таймаутом, выводим сообщение об ошибке
-            printk("Failed to connect to %s (%u)\n", addr, err);
-        }
-        return;
-    }
+	printk("Connected %s\n", addr);
 
-    // Выводим сообщение о соединении
-    printk("Connected %s\n", addr);
+	err = bt_hids_connected(&hids_obj, conn);
 
-    // Уведомляем сервис HID о соединении
-    err = bt_hids_connected(&hids_obj, conn);
+	if (err) {
+		printk("Failed to notify HID service about connection\n");
+		return;
+	}
 
-    // Если произошла ошибка, выводим сообщение об ошибке
-    if (err) {
-        printk("Failed to notify HID service about connection\n");
-        return;
-    }
+	insert_conn_object(conn);
 
-    // Добавляем объект соединения в массив
-    insert_conn_object(conn);
-
-    // Если есть свободное место в массиве, запускаем рекламные сообщения снова
-    if (is_conn_slot_free()) {
-        advertising_start();
-    }
+	if (is_conn_slot_free()) {
+		advertising_start();
+	}
 }
 
 
-// Функция, которая вызывается при разрыве соединения
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
-    // Код ошибки
-    int err;
+	int err;
+	char addr[BT_ADDR_LE_STR_LEN];
 
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    // Буфер для адреса устройства
-    char addr[BT_ADDR_LE_STR_LEN];
+	printk("Disconnected from %s (reason %u)\n", addr, reason);
 
-    // Преобразуем адрес устройства в строку
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+	err = bt_hids_disconnected(&hids_obj, conn);
 
-    // Выводим сообщение о разрыве соединения
-    printk("Disconnected from %s (reason %u)\n", addr, reason);
+	if (err) {
+		printk("Failed to notify HID service about disconnection\n");
+	}
 
-    // Уведомляем сервис HID о разрыве соединения
-    err = bt_hids_disconnected(&hids_obj, conn);
+	for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
+		if (conn_mode[i].conn == conn) {
+			conn_mode[i].conn = NULL;
+			break;
+		}
+	}
 
-    // Если произошла ошибка, выводим сообщение об ошибке
-    if (err) {
-        printk("Failed to notify HID service about disconnection\n");
-    }
-
-    // Находим и удаляем объект соединения из массива
-    for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
-        if (conn_mode[i].conn == conn) {
-            conn_mode[i].conn = NULL;
-            break;
-        }
-    }
-
-    // Запускаем рекламные сообщения снова
-    advertising_start();
+	advertising_start();
 }
-
 
 
 #ifdef CONFIG_BT_HIDS_SECURITY_ENABLED
-// Функция, которая вызывается при изменении уровня безопасности соединения
 static void security_changed(struct bt_conn *conn, bt_security_t level,
-        enum bt_security_err err)
+			     enum bt_security_err err)
 {
-    // Буфер для адреса устройства
-    char addr[BT_ADDR_LE_STR_LEN];
+	char addr[BT_ADDR_LE_STR_LEN];
 
-    // Преобразуем адрес устройства в строку
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    // Если не произошла ошибка, выводим сообщение об изменении уровня безопасности
-    if (!err) {
-        printk("Security changed: %s level %u\n", addr, level);
-    } else {
-        // Если произошла ошибка, выводим сообщение об ошибке безопасности
-        printk("Security failed: %s level %u err %d\n", addr, level, err);
-    }
+	if (!err) {
+		printk("Security changed: %s level %u\n", addr, level);
+	} else {
+		printk("Security failed: %s level %u err %d\n", addr, level,
+			err);
+	}
 }
 #endif
 
@@ -457,50 +367,38 @@ BT_CONN_CB_DEFINE(conn_callbacks) = {
 };
 
 
-
-// Функция, которая обрабатывает события управления питанием HID
 static void hids_pm_evt_handler(enum bt_hids_pm_evt evt,
-        struct bt_conn *conn)
+				struct bt_conn *conn)
 {
-    // Буфер для адреса устройства
-    char addr[BT_ADDR_LE_STR_LEN];
+	char addr[BT_ADDR_LE_STR_LEN];
+	size_t i;
 
-    // Индекс в массиве conn_mode
-    size_t i;
+	for (i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
+		if (conn_mode[i].conn == conn) {
+			break;
+		}
+	}
 
-    // Находим индекс в массиве conn_mode, соответствующий соединению
-    for (i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
-        if (conn_mode[i].conn == conn) {
-            break;
-        }
-    }
+	if (i >= CONFIG_BT_HIDS_MAX_CLIENT_COUNT) {
+		return;
+	}
 
-    // Если не найден индекс, выходим
-    if (i >= CONFIG_BT_HIDS_MAX_CLIENT_COUNT) {
-        return;
-    }
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    // Преобразуем адрес устройства в строку
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+	switch (evt) {
+	case BT_HIDS_PM_EVT_BOOT_MODE_ENTERED:
+		printk("Boot mode entered %s\n", addr);
+		conn_mode[i].in_boot_mode = true;
+		break;
 
-    // Обрабатываем событие управления питанием HID
-    switch (evt) {
-    case BT_HIDS_PM_EVT_BOOT_MODE_ENTERED:
-        // Входим в режим загрузки
-        printk("Boot mode entered %s\n", addr);
-        conn_mode[i].in_boot_mode = true;
-        break;
+	case BT_HIDS_PM_EVT_REPORT_MODE_ENTERED:
+		printk("Report mode entered %s\n", addr);
+		conn_mode[i].in_boot_mode = false;
+		break;
 
-    case BT_HIDS_PM_EVT_REPORT_MODE_ENTERED:
-        // Входим в режим отчета
-        printk("Report mode entered %s\n", addr);
-        conn_mode[i].in_boot_mode = false;
-        break;
-
-    default:
-        // Неизвестное событие
-        break;
-    }
+	default:
+		break;
+	}
 }
 
 
@@ -544,7 +442,6 @@ static void hid_init(void)
 		0x95, 0x01,       /* Report Count (1) */
 		0x81, 0x06,       /* Input (Data,Value,Relative,Bit Field) */
 		0xC0,             /* End Collection (Physical) */
-
 
 		/* Report ID 2: Mouse motion */
 		0x85, 0x02,       /* Report Id 2 */
@@ -591,231 +488,180 @@ static void hid_init(void)
 		0xC0              /* End Collection */
 	};
 
-
-	// Установка карты отчетов для HID-устройства
 	hids_init_param.rep_map.data = report_map;
 	hids_init_param.rep_map.size = sizeof(report_map);
 
-	// Установка информации о HID-устройстве
-	hids_init_param.info.bcd_hid = BASE_USB_HID_SPEC_VERSION; // Версия спецификации HID
-	hids_init_param.info.b_country_code = 0x00; // Код страны
-	hids_init_param.info.flags = (BT_HIDS_REMOTE_WAKE | // Флаги HID-устройства
-								BT_HIDS_NORMALLY_CONNECTABLE);
+	hids_init_param.info.bcd_hid = BASE_USB_HID_SPEC_VERSION;
+	hids_init_param.info.b_country_code = 0x00;
+	hids_init_param.info.flags = (BT_HIDS_REMOTE_WAKE |
+				      BT_HIDS_NORMALLY_CONNECTABLE);
 
-
-	// Установка входных отчетов для HID-устройства
 	hids_inp_rep = &hids_init_param.inp_rep_group_init.reports[0];
-	hids_inp_rep->size = INPUT_REP_BUTTONS_LEN; // Размер отчета о кнопках
-	hids_inp_rep->id = INPUT_REP_REF_BUTTONS_ID; // Идентификатор отчета о кнопках
-	hids_init_param.inp_rep_group_init.cnt++; // Увеличение счетчика входных отчетов
+	hids_inp_rep->size = INPUT_REP_BUTTONS_LEN;
+	hids_inp_rep->id = INPUT_REP_REF_BUTTONS_ID;
+	hids_init_param.inp_rep_group_init.cnt++;
 
-
-	// Установка следующего входного отчета
 	hids_inp_rep++;
-	hids_inp_rep->size = INPUT_REP_MOVEMENT_LEN; // Размер отчета о движении
-	hids_inp_rep->id = INPUT_REP_REF_MOVEMENT_ID; // Идентификатор отчета о движении
-	hids_inp_rep->rep_mask = mouse_movement_mask; // Маска отчета о движении
-	hids_init_param.inp_rep_group_init.cnt++; // Увеличение счетчика входных отчетов
+	hids_inp_rep->size = INPUT_REP_MOVEMENT_LEN;
+	hids_inp_rep->id = INPUT_REP_REF_MOVEMENT_ID;
+	hids_inp_rep->rep_mask = mouse_movement_mask;
+	hids_init_param.inp_rep_group_init.cnt++;
 
-
-	// Установка следующего входного отчета
 	hids_inp_rep++;
-	hids_inp_rep->size = INPUT_REP_MEDIA_PLAYER_LEN; // Размер отчета о медиаплеере
-	hids_inp_rep->id = INPUT_REP_REF_MPLAYER_ID; // Идентификатор отчета о медиаплеере
-	hids_init_param.inp_rep_group_init.cnt++; // Увеличение счетчика входных отчетов
+	hids_inp_rep->size = INPUT_REP_MEDIA_PLAYER_LEN;
+	hids_inp_rep->id = INPUT_REP_REF_MPLAYER_ID;
+	hids_init_param.inp_rep_group_init.cnt++;
 
+	hids_init_param.is_mouse = true;
+	hids_init_param.pm_evt_handler = hids_pm_evt_handler;
 
-	// Установка флага мыши и обработчика событий
-	hids_init_param.is_mouse = true; // Флаг мыши
-	hids_init_param.pm_evt_handler = hids_pm_evt_handler; // Обработчик событий
-
-
-	// Инициализация HID-устройства
 	err = bt_hids_init(&hids_obj, &hids_init_param);
-	__ASSERT(err == 0, "HIDS initialization failed\n"); // Проверка ошибки инициализации
+	__ASSERT(err == 0, "HIDS initialization failed\n");
 }
-
 
 
 static void mouse_movement_send(int16_t x_delta, int16_t y_delta)
 {
-  // Цикл по всем клиентам
-  for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
-    // Если клиент не подключен, пропускаем его
-    if (!conn_mode[i].conn) {
-      continue;
-    }
+	for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
+
+		if (!conn_mode[i].conn) {
+			continue;
+		}
+
+		if (conn_mode[i].in_boot_mode) {
+			x_delta = MAX(MIN(x_delta, SCHAR_MAX), SCHAR_MIN);
+			y_delta = MAX(MIN(y_delta, SCHAR_MAX), SCHAR_MIN);
+
+			bt_hids_boot_mouse_inp_rep_send(&hids_obj,
+							     conn_mode[i].conn,
+							     NULL,
+							     (int8_t) x_delta,
+							     (int8_t) y_delta,
+							     NULL);
+		} else {
+			uint8_t x_buff[2];
+			uint8_t y_buff[2];
+			uint8_t buffer[INPUT_REP_MOVEMENT_LEN];
+
+			int16_t x = MAX(MIN(x_delta, 0x07ff), -0x07ff);
+			int16_t y = MAX(MIN(y_delta, 0x07ff), -0x07ff);
+
+			/* Convert to little-endian. */
+			sys_put_le16(x, x_buff);
+			sys_put_le16(y, y_buff);
+
+			/* Encode report. */
+			BUILD_ASSERT(sizeof(buffer) == 3,
+					 "Only 2 axis, 12-bit each, are supported");
+
+			buffer[0] = x_buff[0];
+			buffer[1] = (y_buff[0] << 4) | (x_buff[1] & 0x0f);
+			buffer[2] = (y_buff[1] << 4) | (y_buff[0] >> 4);
 
 
-    // Если клиент находится в режиме загрузки, отправляем отчет в формате загрузки
-    if (conn_mode[i].in_boot_mode) {
-      // Ограничиваем значения x и y в диапазоне [-128, 127]
-      x_delta = MAX(MIN(x_delta, SCHAR_MAX), SCHAR_MIN);
-      y_delta = MAX(MIN(y_delta, SCHAR_MAX), SCHAR_MIN);
-
-      // Отправляем отчет о движении мыши в формате загрузки
-      bt_hids_boot_mouse_inp_rep_send(&hids_obj,
-                                      conn_mode[i].conn,
-                                      NULL,
-                                      (int8_t) x_delta,
-                                      (int8_t) y_delta,
-                                      NULL);
-    } else {
-      // Если клиент не находится в режиме загрузки, отправляем отчет в формате HID
-      uint8_t x_buff[2];
-      uint8_t y_buff[2];
-      uint8_t buffer[INPUT_REP_MOVEMENT_LEN];
-
-
-      // Ограничиваем значения x и y в диапазоне [-2047, 2047]
-      int16_t x = MAX(MIN(x_delta, 0x07ff), -0x07ff);
-      int16_t y = MAX(MIN(y_delta, 0x07ff), -0x07ff);
-
-      // Преобразуем значения x и y в формат little-endian
-      sys_put_le16(x, x_buff);
-      sys_put_le16(y, y_buff);
-
-      // Кодирование отчета
-      BUILD_ASSERT(sizeof(buffer) == 3,
-                   "Only 2 axis, 12-bit each, are supported");
-
-      buffer[0] = x_buff[0];
-      buffer[1] = (y_buff[0] << 4) | (x_buff[1] & 0x0f);
-      buffer[2] = (y_buff[1] << 4) | (y_buff[0] >> 4);
-
-
-      // Отправляем отчет о движении мыши в формате HID
-      bt_hids_inp_rep_send(&hids_obj, conn_mode[i].conn,
-                          INPUT_REP_MOVEMENT_INDEX,
-                          buffer, sizeof(buffer), NULL);
-    }
-  }
+			bt_hids_inp_rep_send(&hids_obj, conn_mode[i].conn,
+						  INPUT_REP_MOVEMENT_INDEX,
+						  buffer, sizeof(buffer), NULL);
+		}
+	}
 }
-
 
 
 static void mouse_handler(struct k_work *work)
 {
-  // Структура для хранения позиции мыши
-  struct mouse_pos pos;
+	struct mouse_pos pos;
 
-  // Цикл, который обрабатывает сообщения из очереди HID
-  while (!k_msgq_get(&hids_queue, &pos, K_NO_WAIT)) {
-    // Отправляет отчет о движении мыши на основе позиции мыши
-    mouse_movement_send(pos.x_val, pos.y_val);
-  }
-
+	while (!k_msgq_get(&hids_queue, &pos, K_NO_WAIT)) {
+		mouse_movement_send(pos.x_val, pos.y_val);
+	}
 }
 
 #if defined(CONFIG_BT_HIDS_SECURITY_ENABLED)
 static void auth_passkey_display(struct bt_conn *conn, unsigned int passkey)
 {
-  // Буфер для хранения адреса устройства
-  char addr[BT_ADDR_LE_STR_LEN];
-  // Преобразование адреса устройства в строку
-  bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr)); 
+	char addr[BT_ADDR_LE_STR_LEN];
 
-  // Вывод сообщения с проходным кодом
-  printk("Passkey for %s: %06u\n", addr, passkey);
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+
+	printk("Passkey for %s: %06u\n", addr, passkey);
 }
+
 
 static void auth_passkey_confirm(struct bt_conn *conn, unsigned int passkey)
 {
-  // Код ошибки
-  int err;
+	int err;
 
-  // Структура для хранения данных пары
-  struct pairing_data_mitm pairing_data;
+	struct pairing_data_mitm pairing_data;
 
-  // Инициализация структуры данных пары
-  pairing_data.conn = bt_conn_ref(conn);
-  pairing_data.passkey = passkey;
+	pairing_data.conn    = bt_conn_ref(conn);
+	pairing_data.passkey = passkey;
 
-  // Отправка данных пары в очередь
-  err = k_msgq_put(&mitm_queue, &pairing_data, K_NO_WAIT);
-  if (err) {
-    // Если очередь полна, выводим сообщение об ошибке
-    printk("Pairing queue is full. Purge previous data.\n");
-  }
+	err = k_msgq_put(&mitm_queue, &pairing_data, K_NO_WAIT);
+	if (err) {
+		printk("Pairing queue is full. Purge previous data.\n");
+	}
 
-  // Если это первая пара в очереди, запускаем обработку пары
-  if (k_msgq_num_used_get(&mitm_queue) == 1) {
-    k_work_submit(&pairing_work);
-  }
+	/* In the case of multiple pairing requests, trigger
+	 * pairing confirmation which needed user interaction only
+	 * once to avoid display information about all devices at
+	 * the same time. Passkey confirmation for next devices will
+	 * be proccess from queue after handling the earlier ones.
+	 */
+	if (k_msgq_num_used_get(&mitm_queue) == 1) {
+		k_work_submit(&pairing_work);
+	}
 }
 
 
 static void auth_cancel(struct bt_conn *conn)
 {
-  // Буфер для хранения адреса устройства
-  char addr[BT_ADDR_LE_STR_LEN];
+	char addr[BT_ADDR_LE_STR_LEN];
 
-  // Преобразование адреса устройства в строку
-  bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-  // Вывод сообщения об отмене пары
-  printk("Pairing cancelled: %s\n", addr);
+	printk("Pairing cancelled: %s\n", addr);
 }
 
 
 static void pairing_complete(struct bt_conn *conn, bool bonded)
 {
-  // Буфер для хранения адреса устройства
-  char addr[BT_ADDR_LE_STR_LEN];
+	char addr[BT_ADDR_LE_STR_LEN];
 
-  // Преобразование адреса устройства в строку
-  bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-  // Вывод сообщения о завершении пары
-  printk("Pairing completed: %s, bonded: %d\n", addr, bonded);
+	printk("Pairing completed: %s, bonded: %d\n", addr, bonded);
 }
 
 
 static void pairing_failed(struct bt_conn *conn, enum bt_security_err reason)
 {
-  // Буфер для хранения адреса устройства
-  char addr[BT_ADDR_LE_STR_LEN];
+	char addr[BT_ADDR_LE_STR_LEN];
+	struct pairing_data_mitm pairing_data;
 
-  // Структура для хранения данных пары
-  struct pairing_data_mitm pairing_data;
+	if (k_msgq_peek(&mitm_queue, &pairing_data) != 0) {
+		return;
+	}
 
-  // Проверка, есть ли данные пары в очереди
-  if (k_msgq_peek(&mitm_queue, &pairing_data) != 0) {
-    // Если данных нет, выходим из функции
-    return;
-  }
+	if (pairing_data.conn == conn) {
+		bt_conn_unref(pairing_data.conn);
+		k_msgq_get(&mitm_queue, &pairing_data, K_NO_WAIT);
+	}
 
-  // Проверка, соответствует ли соединение в очереди текущему соединению
-  if (pairing_data.conn == conn) {
-    // Если соответствует, освобождаем ресурс соединения и удаляем данные из очереди
-    bt_conn_unref(pairing_data.conn);
-    k_msgq_get(&mitm_queue, &pairing_data, K_NO_WAIT);
-  }
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-  // Преобразование адреса устройства в строку
-  bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-
-  // Вывод сообщения о неудаче пары
-  printk("Pairing failed conn: %s, reason %d\n", addr, reason);
+	printk("Pairing failed conn: %s, reason %d\n", addr, reason);
 }
 
 
-// Определение структуры conn_auth_callbacks для обработки аутентификации соединения
 static struct bt_conn_auth_cb conn_auth_callbacks = {
-    // Функция, которая отображает проходной код для аутентификации
-    .passkey_display = auth_passkey_display,
-    // Функция, которая подтверждает проходной код для аутентификации
-    .passkey_confirm = auth_passkey_confirm,
-    // Функция, которая обрабатывает отмену процесса аутентификации
-    .cancel = auth_cancel,
+	.passkey_display = auth_passkey_display,
+	.passkey_confirm = auth_passkey_confirm,
+	.cancel = auth_cancel,
 };
 
-// Определение структуры conn_auth_info_callbacks для обработки информации о паре соединения
 static struct bt_conn_auth_info_cb conn_auth_info_callbacks = {
-    // Функция, которая обрабатывает завершение процесса пары
-    .pairing_complete = pairing_complete,
-    // Функция, которая обрабатывает неудачу процесса пары
-    .pairing_failed = pairing_failed
+	.pairing_complete = pairing_complete,
+	.pairing_failed = pairing_failed
 };
 #else
 static struct bt_conn_auth_cb conn_auth_callbacks;
@@ -823,210 +669,171 @@ static struct bt_conn_auth_info_cb conn_auth_info_callbacks;
 #endif /* defined(CONFIG_BT_HIDS_SECURITY_ENABLED) */
 
 
-// Функция, которая отправляет ответ на запрос числового сравнения для пары соединения
 static void num_comp_reply(bool accept)
 {
-    // Структура для хранения данных пары
-    struct pairing_data_mitm pairing_data;
-    // Указатель на соединение
-    struct bt_conn *conn;
+	struct pairing_data_mitm pairing_data;
+	struct bt_conn *conn;
 
-    // Получение данных пары из очереди
-    if (k_msgq_get(&mitm_queue, &pairing_data, K_NO_WAIT) != 0) {
-        // Если данные не получены, выходим из функции
-        return;
-    }
+	if (k_msgq_get(&mitm_queue, &pairing_data, K_NO_WAIT) != 0) {
+		return;
+	}
 
-    // Получение соединения из данных пары
-    conn = pairing_data.conn;
+	conn = pairing_data.conn;
 
-    // Если ответ положительный, подтверждаем числовое сравнение
-    if (accept) {
-        // Подтверждаем числовое сравнение для соединения
-        bt_conn_auth_passkey_confirm(conn);
-        // Выводим сообщение о подтверждении числового сравнения
-        printk("Numeric Match, conn %p\n", conn);
-    } else {
-        // Если ответ отрицательный, отменяем числовое сравнение
-        bt_conn_auth_cancel(conn);
-        // Выводим сообщение об отмене числового сравнения
-        printk("Numeric Reject, conn %p\n", conn);
-    }
+	if (accept) {
+		bt_conn_auth_passkey_confirm(conn);
+		printk("Numeric Match, conn %p\n", conn);
+	} else {
+		bt_conn_auth_cancel(conn);
+		printk("Numeric Reject, conn %p\n", conn);
+	}
 
-    // Освобождаем ресурс соединения
-    bt_conn_unref(pairing_data.conn);
+	bt_conn_unref(pairing_data.conn);
 
-    // Если в очереди есть еще данные, запускаем обработку следующей пары
-    if (k_msgq_num_used_get(&mitm_queue)) {
-        k_work_submit(&pairing_work);
-    }
+	if (k_msgq_num_used_get(&mitm_queue)) {
+		k_work_submit(&pairing_work);
+	}
 }
 
 
-// Функция button_changed вызывается при изменении состояния кнопок
 void button_changed(uint32_t button_state, uint32_t has_changed)
 {
-    bool data_to_send = false;
-    struct mouse_pos pos;
-    uint32_t buttons = button_state & has_changed;
+	bool data_to_send = false;
+	struct mouse_pos pos;
+	uint32_t buttons = button_state & has_changed;
 
+	memset(&pos, 0, sizeof(struct mouse_pos));
 
-    memset(&pos, 0, sizeof(struct mouse_pos));
+	if (IS_ENABLED(CONFIG_BT_HIDS_SECURITY_ENABLED)) {
+		if (k_msgq_num_used_get(&mitm_queue)) {
+			if (buttons & KEY_PAIRING_ACCEPT) {
+				num_comp_reply(true);
 
+				return;
+			}
 
-    if (IS_ENABLED(CONFIG_BT_HIDS_SECURITY_ENABLED)) {
-        if (k_msgq_num_used_get(&mitm_queue)) {
-            if (buttons & KEY_PAIRING_ACCEPT) {
-                num_comp_reply(true);
-                return;
-            }
+			if (buttons & KEY_PAIRING_REJECT) {
+				num_comp_reply(false);
 
-            if (buttons & KEY_PAIRING_REJECT) {
-                num_comp_reply(false);
-                return;
-            }
-        }
-    }
+				return;
+			}
+		}
+	}
 
-    if (buttons & KEY_LEFT_MASK) {
-        pos.x_val -= MOVEMENT_SPEED;
-        printk("%s(): left\n", __func__);
-        data_to_send = true;
-    }
-    if (buttons & KEY_UP_MASK) {
-        pos.y_val -= MOVEMENT_SPEED;
-        printk("%s(): up\n", __func__);
-        data_to_send = true;
-    }
-    if (buttons & KEY_RIGHT_MASK) {
-        pos.x_val += MOVEMENT_SPEED;
-        printk("%s(): right\n", __func__);
-        data_to_send = true;
-    }
-    if (buttons & KEY_DOWN_MASK) {
-        pos.y_val += MOVEMENT_SPEED;
-        printk("%s(): down\n", __func__);
-        data_to_send = true;
-    }
+	if (buttons & KEY_LEFT_MASK) {
+		pos.x_val -= MOVEMENT_SPEED;
+		printk("%s(): left\n", __func__);
+		data_to_send = true;
+	}
+	if (buttons & KEY_UP_MASK) {
+		pos.y_val -= MOVEMENT_SPEED;
+		printk("%s(): up\n", __func__);
+		data_to_send = true;
+	}
+	if (buttons & KEY_RIGHT_MASK) {
+		pos.x_val += MOVEMENT_SPEED;
+		printk("%s(): right\n", __func__);
+		data_to_send = true;
+	}
+	if (buttons & KEY_DOWN_MASK) {
+		pos.y_val += MOVEMENT_SPEED;
+		printk("%s(): down\n", __func__);
+		data_to_send = true;
+	}
 
+	if (data_to_send) {
+		int err;
 
-    if (data_to_send) {
-        int err;
-        err = k_msgq_put(&hids_queue, &pos, K_NO_WAIT);
-        if (err) {
-            printk("No space in the queue for button pressed\n");
-            return;
-        }
-        if (k_msgq_num_used_get(&hids_queue) == 1) {
-            k_work_submit(&hids_work);
-        }
-    }
+		err = k_msgq_put(&hids_queue, &pos, K_NO_WAIT);
+		if (err) {
+			printk("No space in the queue for button pressed\n");
+			return;
+		}
+		if (k_msgq_num_used_get(&hids_queue) == 1) {
+			k_work_submit(&hids_work);
+		}
+	}
 }
 
 
-// Функция, которая конфигурирует кнопки устройства
 void configure_buttons(void)
 {
-    // Код ошибки
-    int err;
+	int err;
 
-    // Инициализация кнопок с функцией обратного вызова button_changed
-    err = dk_buttons_init(button_changed);
-    // Если инициализация не удалась, выводим сообщение об ошибке
-    if (err) {
-        printk("Cannot init buttons (err: %d)\n", err);
-    }
+	err = dk_buttons_init(button_changed);
+	if (err) {
+		printk("Cannot init buttons (err: %d)\n", err);
+	}
 }
 
 
-// Функция, которая уведомляет о текущем уровне заряда батареи
 static void bas_notify(void)
 {
-    // Текущий уровень заряда батареи
-    uint8_t battery_level = bt_bas_get_battery_level();
+	uint8_t battery_level = bt_bas_get_battery_level();
 
-    // Уменьшаем уровень заряда батареи на 1%
-    battery_level--;
+	battery_level--;
 
-    // Если уровень заряда батареи достигнул 0%, устанавливаем его в 100%
-    if (!battery_level) {
-        battery_level = 100U;
-    }
+	if (!battery_level) {
+		battery_level = 100U;
+	}
 
-    // Устанавливаем новый уровень заряда батареи
-    bt_bas_set_battery_level(battery_level);
+	bt_bas_set_battery_level(battery_level);
 }
 
 
-// Основная функция программы
 int main(void)
 {
-    // Код ошибки
-    int err;
+	int err;
 
-    // Выводим сообщение о начале работы примера Bluetooth Peripheral HIDS mouse
-    printk("Starting Bluetooth Peripheral HIDS mouse example\n");
+	printk("Starting Bluetooth Peripheral HIDS mouse example\n");
 
-    // Если включена безопасность HIDS, регистрируем функции обратного вызова для авторизации
-    if (IS_ENABLED(CONFIG_BT_HIDS_SECURITY_ENABLED)) {
-        // Регистрируем функции обратного вызова для авторизации
-        err = bt_conn_auth_cb_register(&conn_auth_callbacks);
-        if (err) {
-            // Если регистрация не удалась, выводим сообщение об ошибке и завершаем работу
-            printk("Failed to register authorization callbacks.\n");
-            return 0;
-        }
+	if (IS_ENABLED(CONFIG_BT_HIDS_SECURITY_ENABLED)) {
+		err = bt_conn_auth_cb_register(&conn_auth_callbacks);
+		if (err) {
+			printk("Failed to register authorization callbacks.\n");
+			return 0;
+		}
 
-        // Регистрируем функции обратного вызова для авторизации информации
-        err = bt_conn_auth_info_cb_register(&conn_auth_info_callbacks);
-        if (err) {
-            // Если регистрация не удалась, выводим сообщение об ошибке и завершаем работу
-            printk("Failed to register authorization info callbacks.\n");
-            return 0;
-        }
-    }
+		err = bt_conn_auth_info_cb_register(&conn_auth_info_callbacks);
+		if (err) {
+			printk("Failed to register authorization info callbacks.\n");
+			return 0;
+		}
+	}
 
-    // Инициализируем HID
-    hid_init();
+	/* DIS initialized at system boot with SYS_INIT macro. */
+	hid_init();
 
-    // Включаем Bluetooth
-    err = bt_enable(NULL);
-    if (err) {
-        // Если включение не удалось, выводим сообщение об ошибке и завершаем работу
-        printk("Bluetooth init failed (err %d)\n", err);
-        return 0;
-    }
+	err = bt_enable(NULL);
+	if (err) {
+		printk("Bluetooth init failed (err %d)\n", err);
+		return 0;
+	}
 
-    // Выводим сообщение о успешном включении Bluetooth
-    printk("Bluetooth initialized\n");
+	printk("Bluetooth initialized\n");
 
-    // Инициализируем задачи для обработки событий мыши и рекламных сообщений
-    k_work_init(&hids_work, mouse_handler);
-    k_work_init(&adv_work, advertising_process);
-    if (IS_ENABLED(CONFIG_BT_HIDS_SECURITY_ENABLED)) {
-        // Если включена безопасность HIDS, инициализируем задачу для обработки пары
-        k_work_init(&pairing_work, pairing_process);
-    }
+	k_work_init(&hids_work, mouse_handler);
+	k_work_init(&adv_work, advertising_process);
+	if (IS_ENABLED(CONFIG_BT_HIDS_SECURITY_ENABLED)) {
+		k_work_init(&pairing_work, pairing_process);
+	}
 
-    // Если включены настройки, загружаем их
-    if (IS_ENABLED(CONFIG_SETTINGS)) {
-        settings_load();
-    }
+	if (IS_ENABLED(CONFIG_SETTINGS)) {
+		settings_load();
+	}
 
-    // Начинаем рекламные сообщения
-    advertising_start();
+	advertising_start();
 
-    // Конфигурируем кнопки
-    configure_buttons();
+	configure_buttons();
 
-    // Основной цикл программы
-    while (1) {
-        // Сон на 1 секунду
-        k_sleep(K_SECONDS(1));
-        // Симулируем изменение уровня заряда батареи
-        bas_notify();
-    }
+	while (1) {
+		k_sleep(K_SECONDS(1));
+		/* Battery level simulation */
+		bas_notify();
+	}
 }
+
+
 
 void test_run_cmd1(int number)
 {
