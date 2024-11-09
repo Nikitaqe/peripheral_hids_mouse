@@ -138,26 +138,44 @@ K_MSGQ_DEFINE(mitm_queue,
 	      4);
 
 #if CONFIG_BT_DIRECTED_ADVERTISING
+/**
+ * Функция для поиска пары (bond) в списке известных устройств.
+ * Если устройство уже подключено, то пропускаем его.
+ * Если устройство не подключено, то добавляем его в очередь пар.
+ *
+ * @param info Информация о паре (bond).
+ * @param user_data Дополнительные данные, переданные в функцию.
+ */
 static void bond_find(const struct bt_bond_info *info, void *user_data)
 {
-	int err;
+    // Переменная для хранения ошибки
+    int err;
 
-	/* Filter already connected peers. */
-	for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
-		if (conn_mode[i].conn) {
-			const bt_addr_le_t *dst =
-				bt_conn_get_dst(conn_mode[i].conn);
+    /**
+     * Фильтрация уже подключенных устройств.
+     * Если устройство уже подключено, то пропускаем его.
+     */
+    for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
+        if (conn_mode[i].conn) {
+            // Адрес устройства, с которым установлено соединение
+            const bt_addr_le_t *dst = bt_conn_get_dst(conn_mode[i].conn);
 
-			if (!bt_addr_le_cmp(&info->addr, dst)) {
-				return;
-			}
-		}
-	}
+            // Сравнение адресов устройств
+            if (!bt_addr_le_cmp(&info->addr, dst)) {
+                // Если адреса совпадают, то пропускаем устройство
+                return;
+            }
+        }
+    }
 
-	err = k_msgq_put(&bonds_queue, (void *) &info->addr, K_NO_WAIT);
-	if (err) {
-		printk("No space in the queue for the bond.\n");
-	}
+    /**
+     * Добавление устройства в очередь пар.
+     * Если очередь заполнена, то выводим сообщение об ошибке.
+     */
+    err = k_msgq_put(&bonds_queue, (void *) &info->addr, K_NO_WAIT);
+    if (err) {
+        printk("No space in the queue for the bond.\n");
+    }
 }
 #endif
 
