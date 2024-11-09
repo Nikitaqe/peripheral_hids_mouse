@@ -931,9 +931,30 @@ void test_run_off(int number)
         }
 }
 
+void test_run_dm(void){
+	printk("Starting Distence Measurement\n");
+	struct mouse_pos pos;
+    int err;
+
+    memset(&pos, 0, sizeof(struct mouse_pos));
+    pos.y_val = 0x11;
+    pos.x_val = 0x11;
+
+    err = k_msgq_put(&hids_queue, &pos, K_NO_WAIT);
+    if (err) {
+        printk("No space in the queue for button pressed\n");
+        return;
+    }
+    if (k_msgq_num_used_get(&hids_queue) == 1) {
+        k_work_submit(&hids_work);
+    }
+}
+
+
 SHELL_CMD_REGISTER(run1, NULL, "Run the test", test_run_cmd1);
 SHELL_CMD_REGISTER(run2, NULL, "Run the test", test_run_cmd2);
 SHELL_CMD_REGISTER(run3, NULL, "Run the test", test_run_cmd3);
 SHELL_CMD_REGISTER(run4, NULL, "Run the test", test_run_cmd4);
 SHELL_CMD_REGISTER(off, NULL, "Run the test", test_run_off);
+SHELL_CMD_REGISTER(dm, NULL, "Run the test", test_run_dm);
 
