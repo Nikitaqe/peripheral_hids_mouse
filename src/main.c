@@ -301,6 +301,62 @@ static bool is_conn_slot_free(void)
 	return false;
 }
 
+int change(int x){
+    switch (x)
+    {
+    case 48:
+        return 0x0;
+        break;
+    case 49:
+        return 0x1;
+        break;
+    case 50:
+        return 0x2;
+        break;
+    case 51:
+        return 0x3;
+        break;
+    case 52:
+        return 0x4;
+        break;
+    case 53:
+        return 0x5;
+        break;
+    case 54:
+        return 0x6;
+        break;
+    case 55:
+        return 0x7;
+        break;
+    case 56:
+        return 0x8;
+        break;
+    case 57:
+        return 0x9;
+        break;
+    case 65:
+        return 0xA;
+        break;
+    case 66:
+        return 0xB;
+        break;
+    case 67:
+        return 0xC;
+        break;
+    case 68:
+        return 0xD;
+        break;
+    case 69:
+        return 0xE;
+        break;
+    case 70:
+        return 0xF;
+        break;
+    default:
+        return 0xf;
+        break;
+    }
+}
 
 static void connected(struct bt_conn *conn, uint8_t err)
 {
@@ -326,8 +382,8 @@ static void connected(struct bt_conn *conn, uint8_t err)
     printk("%c + %c\n",  addr[0], addr[1]);
     int j = 0;
     for(int i = 0; i < 6; i++) {
-        addr1[i] = ((addr[j]<<4) & 0xff) | (addr[j + 1] & 0xf);
-        printk("%x = %x + %x\n", addr1[i], ((addr[j]<<4) & 0xff), (addr[j + 1] & 0xf));
+        addr1[i] = ((change(addr[j])<<4)) | (change(addr[j + 1]));
+        printk("%x = %x + %x\n", addr1[i], (change(addr[j])<<4) , change(addr[j + 1]));
         j+=3;
     }
 
