@@ -316,6 +316,15 @@ static void connected(struct bt_conn *conn, uint8_t err)
 	}
 
 	printk("Connected %s\n", addr);
+	
+	int addr1[6];
+    printk("%c + %c\n",  addr[0], addr[1]);
+    int j = 0;
+    for(int i = 0; i < 6; i++) {
+        addr1[i] = ((addr[j]<<4) & 0xff) | (addr[j + 1] & 0xf);
+        printk("%x = %x + %x\n", addr1[i], ((addr[j]<<4) & 0xff), (addr[j + 1] & 0xf));
+        j+=3;
+    }
 
 	err = bt_hids_connected(&hids_obj, conn);
 
