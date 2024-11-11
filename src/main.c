@@ -1039,13 +1039,13 @@ void test_run_dm(void){
 
     //Запись адреса устройства
     for(int i = 0; i < 6; i++){
-        req.bt_addr.a.val[i] = addr12[i];
+        req.bt_addr.a.val[5 -i] = addr12[i];
     }
 
     //bt_addr_le_copy(&req.bt_addr, user_data);
     req.role = DM_ROLE_REFLECTOR;
 	req.ranging_mode = DM_RANGING_MODE_MCPD; //peer_ranging_mode_get();
-	req.rng_seed =123456798;//sys_le32_to_cpu(recv_mfg_data->rng_seed) + scanner_random_share;
+	req.rng_seed = 1549329102;//sys_le32_to_cpu(recv_mfg_data->rng_seed) + scanner_random_share;
     req.start_delay_us = 0;
     req.extra_window_time_us = 0;
 
