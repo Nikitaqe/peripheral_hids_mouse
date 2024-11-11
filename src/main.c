@@ -64,7 +64,7 @@
 #define INPUT_REP_REF_MPLAYER_ID    3
 
 
-int addr1[6];
+int addr12[6];
 
 
 
@@ -379,12 +379,9 @@ static void connected(struct bt_conn *conn, uint8_t err)
 
 	printk("Connected %s\n", addr);
 
-	
-    printk("%c + %c\n",  addr[0], addr[1]);
     int j = 0;
     for(int i = 0; i < 6; i++) {
-        addr1[i] = ((change(addr[j])<<4)) | (change(addr[j + 1]));
-        printk("%x = %x + %x\n", addr1[i], (change(addr[j])<<4) , change(addr[j + 1]));
+        addr12[i] = ((change(addr[j])<<4)) | (change(addr[j + 1]));
         j+=3;
     }
 
