@@ -17,6 +17,7 @@
 
 #include <zephyr/settings/settings.h>
 
+
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/hci.h>
 #include <zephyr/bluetooth/conn.h>
@@ -353,7 +354,7 @@ int change(int x){
         return 0xF;
         break;
     default:
-        return 0xf;
+        return 0xF;
         break;
     }
 }
