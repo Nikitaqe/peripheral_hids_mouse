@@ -12,3 +12,4 @@ FILE(GLOB app_sources src/*.c)
 # NORDIC SDK APP START
 target_sources(app PRIVATE ${app_sources})
 # NORDIC SDK APP END
+zephyr_library_include_directories(${CMAKE_CURRENT_SOURCE_DIR})

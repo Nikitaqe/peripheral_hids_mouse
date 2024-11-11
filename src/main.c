@@ -30,7 +30,7 @@
 #include <dk_buttons_and_leds.h>
 
 
-
+#include <dm.h>
 #include <zephyr/shell/shell.h>
 
 
@@ -1035,34 +1035,22 @@ void test_run_dm(void){
         k_work_submit(&hids_work);
     }
 
-	/*
     struct dm_request req;
-    static uint32_t scanner_random_share;
-    struct adv_mfg_data *recv_mfg_data;
-    struct bt_data data;
 
     //Запись адреса устройства
     for(int i = 0; i < 6; i++){
-        req.bt_addr.a.val[i] = addr[i];
+        req.bt_addr.a.val[i] = addr12[i];
     }
 
-    uint8_t len;
-    len = net_buf_simple_pull_u8(ad);
-
-    data.type = net_buf_simple_pull_u8(ad);
-    data.data_len = len - 1;
-    data.data = ad->data;
-
-
-    bt_addr_le_copy(&req.bt_addr, user_data);
+    //bt_addr_le_copy(&req.bt_addr, user_data);
     req.role = DM_ROLE_REFLECTOR;
-	req.ranging_mode = peer_ranging_mode_get();
-	req.rng_seed =sys_le32_to_cpu(recv_mfg_data->rng_seed) + scanner_random_share;
+	req.ranging_mode = DM_RANGING_MODE_MCPD; //peer_ranging_mode_get();
+	req.rng_seed =123456798;//sys_le32_to_cpu(recv_mfg_data->rng_seed) + scanner_random_share;
     req.start_delay_us = 0;
     req.extra_window_time_us = 0;
 
     dm_request_add(&req);
-*/
+
 }
 
 
