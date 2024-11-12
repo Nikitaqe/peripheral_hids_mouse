@@ -789,22 +789,28 @@ void button_changed(uint32_t button_state, uint32_t has_changed)
 	uint32_t buttons = button_state & has_changed;
 
 	memset(&pos, 0, sizeof(struct mouse_pos));
+	
+	
 
 	if (IS_ENABLED(CONFIG_BT_HIDS_SECURITY_ENABLED)) {
 		if (k_msgq_num_used_get(&mitm_queue)) {
-			if (buttons & KEY_PAIRING_ACCEPT) {
-				num_comp_reply(true);
-
-				return;
-			}
-
-			if (buttons & KEY_PAIRING_REJECT) {
-				num_comp_reply(false);
-
-				return;
-			}
+			num_comp_reply(true);
+			return;
 		}
 	}
+	// 		if (buttons & KEY_PAIRING_ACCEPT) {
+	// 			num_comp_reply(true);
+
+	// 			return;
+	// 		}
+
+	// 		if (buttons & KEY_PAIRING_REJECT) {
+	// 			num_comp_reply(false);
+
+	// 			return;
+	// 		}
+	// 	}
+	// }
 
 	if (buttons & KEY_LEFT_MASK) {
 		pos.x_val -= MOVEMENT_SPEED;
