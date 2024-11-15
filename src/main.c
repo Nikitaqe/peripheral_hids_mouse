@@ -702,34 +702,6 @@ static struct bt_conn_auth_info_cb conn_auth_info_callbacks = {
 static struct bt_conn_auth_info_cb conn_auth_info_callbacks;
 #endif /* defined(CONFIG_BT_HIDS_SECURITY_ENABLED) */
 
-
-static void num_comp_reply(bool accept)
-{
-	struct pairing_data_mitm pairing_data;
-	struct bt_conn *conn;
-
-	if (k_msgq_get(&mitm_queue, &pairing_data, K_NO_WAIT) != 0) {
-		return;
-	}
-
-	conn = pairing_data.conn;
-
-	if (accept) {
-		bt_conn_auth_passkey_confirm(conn);
-		printk("Numeric Match, conn %p\n", conn);
-	} else {
-		bt_conn_auth_cancel(conn);
-		printk("Numeric Reject, conn %p\n", conn);
-	}
-
-	bt_conn_unref(pairing_data.conn);
-
-	if (k_msgq_num_used_get(&mitm_queue)) {
-		k_work_submit(&pairing_work);
-	}
-}
-
-
 void button_changed(uint32_t button_state, uint32_t has_changed)
 {
 	bool data_to_send = false;
@@ -737,28 +709,6 @@ void button_changed(uint32_t button_state, uint32_t has_changed)
 	uint32_t buttons = button_state & has_changed;
 
 	memset(&pos, 0, sizeof(struct mouse_pos));
-	
-	
-
-	if (IS_ENABLED(CONFIG_BT_HIDS_SECURITY_ENABLED)) {
-		if (k_msgq_num_used_get(&mitm_queue)) {
-			num_comp_reply(true);
-			return;
-		}
-	}
-	// 		if (buttons & KEY_PAIRING_ACCEPT) {
-	// 			num_comp_reply(true);
-
-	// 			return;
-	// 		}
-
-	// 		if (buttons & KEY_PAIRING_REJECT) {
-	// 			num_comp_reply(false);
-
-	// 			return;
-	// 		}
-	// 	}
-	// }
 
 	if (buttons & KEY_LEFT_MASK) {
 		pos.x_val -= MOVEMENT_SPEED;
@@ -948,22 +898,8 @@ void test_run_cmd4(int number)
 
 void test_run_off(int number)
 {
-    printk("Running test\n");
-    struct mouse_pos pos;
-    int err;
-
-    memset(&pos, 0, sizeof(struct mouse_pos));
-    pos.y_val = 0;
-    pos.x_val = 0;
-
-    err = k_msgq_put(&hids_queue, &pos, K_NO_WAIT);
-        if (err) {
-            printk("No space in the queue for button pressed\n");
-            return;
-        }
-        if (k_msgq_num_used_get(&hids_queue) == 1) {
-            k_work_submit(&hids_work);
-        }
+	bt_disable();
+	main();
 }
 
 void test_run_dm(void){
