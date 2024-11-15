@@ -274,9 +274,6 @@ static void pairing_process(struct k_work *work)
 
 	bt_addr_le_to_str(bt_conn_get_dst(pairing_data.conn),
 			  addr, sizeof(addr));
-
-	printk("Passkey for %s: %06u\n", addr, pairing_data.passkey);
-	printk("Press Button 1 to confirm, Button 2 to reject.\n");
 }
 
 
