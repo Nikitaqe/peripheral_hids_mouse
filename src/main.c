@@ -33,6 +33,10 @@
 #include <dm.h>
 #include <zephyr/shell/shell.h>
 
+#include "peer.h"
+#include "pwm_led.h"
+#include "service.h"
+
 
 
 #define DEVICE_NAME     CONFIG_BT_DEVICE_NAME
